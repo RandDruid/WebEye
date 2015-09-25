@@ -23,9 +23,9 @@ namespace FFmpeg
 {
     namespace Facade
     {
-        typedef void(__stdcall *StreamStartedCallback)();
-		typedef void(__stdcall *StreamStoppedCallback)();
-        typedef void(__stdcall *StreamFailedCallback)();
+		typedef void(__stdcall *StreamStartedCallback)(uint32_t streamNum);
+		typedef void(__stdcall *StreamStoppedCallback)(uint32_t streamNum);
+		typedef void(__stdcall *StreamFailedCallback)(uint32_t streamNum);
 
         struct StreamPlayerParams
         {
@@ -63,7 +63,13 @@ namespace FFmpeg
             /// <param name="streamUrl">The url of a stream to play.</param>
 			void StartPlay(std::string const& streamUrl);
 
-            /// <summary>
+			/// <summary>
+			/// Asynchronously plays a second (PiP) stream.
+			/// </summary>
+			/// <param name="streamUrl">The url of a stream to play.</param>
+			void StartPlayPiP(std::string const& streamUrl);
+			
+			/// <summary>
             /// Stops a stream.
             /// </summary>
             void Stop();
@@ -81,7 +87,22 @@ namespace FFmpeg
             /// <param name="heightPtr">A pointer to an int that will receive the height.</param>
             void GetFrameSize(uint32_t *widthPtr, uint32_t *heightPtr);
 
-            /// <summary>
+			/// <summary>
+			/// Set PiP parameters.
+			/// </summary>
+			void SetupPiP(int32_t *pip_width, int32_t *pip_top, int32_t *pip_left);
+
+			/// <summary>
+			/// Set Zoom parameter.
+			/// </summary>
+			void SetupZoom(int32_t *zoom);
+
+			/// <summary>
+			/// Set Cross parameter.
+			/// </summary>
+			void SetupCross(int32_t *cross);
+
+			/// <summary>
             /// Uninitializes the player.
             /// </summary>
             void Uninitialize();
@@ -94,6 +115,12 @@ namespace FFmpeg
 			void Play(std::string const& streamUrl);
 
 			/// <summary>
+			/// Plays a second (PiP) stream.
+			/// </summary>
+			/// <param name="streamUrl">The url of a stream to play.</param>
+			void PlayPiP(std::string const& streamUrl);
+
+			/// <summary>
 			/// Draws a frame.
 			/// </summary>
             void DrawFrame();
@@ -101,36 +128,46 @@ namespace FFmpeg
 			/// <summary>
 			/// Raises the StreamStarted event.
 			/// </summary>
-            void RaiseStreamStartedEvent();
+            void RaiseStreamStartedEvent(uint32_t streamNum);
 
 			/// <summary>
 			/// Raises the StreamStopped event.
 			/// </summary>
-			void RaiseStreamStoppedEvent();
+			void RaiseStreamStoppedEvent(uint32_t streamNum);
 
 			/// <summary>
 			/// Raises the StreamFailed event.
 			/// </summary>
-            void RaiseStreamFailedEvent();
+			void RaiseStreamFailedEvent(uint32_t streamNum);
 
             static LRESULT APIENTRY WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
         private:
 			            
             boost::atomic<bool> stopRequested_;
-            StreamPlayerParams playerParams_;
+			boost::atomic<bool> stopRequestedPiP_;
+			StreamPlayerParams playerParams_;
 
             std::unique_ptr<Frame> framePtr_;
+			std::unique_ptr<Frame> framePiPPtr_;
 
             // There is a bug in the Visual Studio std::thread implementation,
             // which prohibits dll unloading, that is why the boost::thread is used instead.
             // https://connect.microsoft.com/VisualStudio/feedback/details/781665/stl-using-std-threading-objects-adds-extra-load-count-for-hosted-dll#tabs 
 
 			boost::mutex mutex_;
+			boost::mutex mutexPiP_;
 			boost::thread workerThread_;
-            
+			boost::thread workerThreadPiP_;
+
             static WNDPROC originalWndProc_;
-        };
+		
+			int pip_width_;
+			int pip_top_, pip_left_;
+			bool we_have_pip_;
+			int zoom_;
+			int cross_;
+		};
     }
 }
 

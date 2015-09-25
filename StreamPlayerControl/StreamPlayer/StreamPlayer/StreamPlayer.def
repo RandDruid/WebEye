@@ -2,7 +2,11 @@ LIBRARY	"StreamPlayer"
 
 EXPORTS Initialize
         StartPlay
+        StartPlayPiP
 		GetCurrentFrame
 		GetFrameSize
+		SetupPiP
+		SetupCross
+		SetupZoom
         Stop
         Uninitialize 

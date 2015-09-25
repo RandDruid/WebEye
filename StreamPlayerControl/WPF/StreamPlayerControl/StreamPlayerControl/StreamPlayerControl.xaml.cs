@@ -52,6 +52,51 @@ namespace WebEye
         }
 
         /// <summary>
+        /// Asynchronously plays a second (PiP) stream.
+        /// </summary>
+        /// <param name="uri">The uri of a stream to play.</param>
+        /// <exception cref="ArgumentException">An invalid string is passed as an argument.</exception>
+        /// <exception cref="Win32Exception">Failed to load the FFmpeg facade dll.</exception>
+        /// <exception cref="StreamPlayerException">Failed to play the stream.</exception>
+        public void StartPlayPiP(Uri uri)
+        {
+            Player.StartPlayPiP(uri.ToString());
+        }
+
+        /// <summary>
+        /// Setup position and size of PiP.
+        /// </summary>
+        /// <param name="width">Width of PiP, height will be computed automatically.</param>
+        /// <exception cref="Win32Exception">Failed to load the FFmpeg facade dll.</exception>
+        /// <exception cref="StreamPlayerException">Failed to play the stream.</exception>
+        public void SetupPiP(ref int width, ref int top, ref int left)
+        {
+            Player.SetupPiP(ref width, ref top, ref left);
+        }
+
+        /// <summary>
+        /// Setup Zoom of main video stream.
+        /// </summary>
+        /// <param name="width">Zoom factor.</param>
+        /// <exception cref="Win32Exception">Failed to load the FFmpeg facade dll.</exception>
+        /// <exception cref="StreamPlayerException">Failed to play the stream.</exception>
+        public void SetupZoom(ref int zoom)
+        {
+            Player.SetupZoom(ref zoom);
+        }
+
+        /// <summary>
+        /// Setup Cross of main video stream.
+        /// </summary>
+        /// <param name="width">No cross - 0, cross overlay - 1</param>
+        /// <exception cref="Win32Exception">Failed to load the FFmpeg facade dll.</exception>
+        /// <exception cref="StreamPlayerException">Failed to play the stream.</exception>
+        public void SetupCross(ref int zoom)
+        {
+            Player.SetupCross(ref zoom);
+        }
+
+        /// <summary>
         /// Retrieves the unstretched image being played.
         /// </summary>
         /// <returns>The current image.</returns>
@@ -145,7 +190,7 @@ namespace WebEye
         }
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall, SetLastError = true)]
-        delegate void CallbackDelegate();
+        delegate void CallbackDelegate(int streamNum);
         
         private Delegate _streamStartedCallback;
         private Delegate _streamStoppedCallback;
@@ -185,7 +230,7 @@ namespace WebEye
             remove { RemoveHandler(StreamStartedEvent, value); }
         }
 
-        private void RaiseStreamStartedEvent()
+        private void RaiseStreamStartedEvent(int streamNum)
         {
             IsPlaying = true;
             RaiseEvent(new RoutedEventArgs(StreamStartedEvent));
@@ -204,7 +249,7 @@ namespace WebEye
             remove { RemoveHandler(StreamStoppedEvent, value); }
         }
 
-        private void RaiseStreamStoppedEvent()
+        private void RaiseStreamStoppedEvent(int streamNum)
         {
             IsPlaying = false;
             RaiseEvent(new RoutedEventArgs(StreamStoppedEvent));
@@ -223,7 +268,7 @@ namespace WebEye
             remove { RemoveHandler(StreamFailedEvent, value); }
         }
 
-        private void RaiseStreamFailedEvent()
+        private void RaiseStreamFailedEvent(int streamNum)
         {
             IsPlaying = false;
             RaiseEvent(new RoutedEventArgs(StreamFailedEvent));

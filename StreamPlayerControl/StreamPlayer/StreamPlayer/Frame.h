@@ -60,7 +60,7 @@ namespace FFmpeg
             /// Draws the frame.
             /// </summary>
             /// <param name="window">A container window that frame should be drawn on.</param>
-            void Draw(HWND window);
+			void Draw(HWND window, int zoom = 1, int cross = 0, Frame *pip = nullptr, int pip_width = 0, int pip_top = 0, int pip_left = 0);
 
             /// <summary>
             /// Converts the frame to a bitmap.
@@ -87,10 +87,14 @@ namespace FFmpeg
                     sizeof(uint32_t) - (lineSize % sizeof(uint32_t)) : 0;
             }
 
+			void brightenUp(uint8_t *ptr, uint8_t value);
+
             int32_t width_, height_;
             uint8_t *pixelsPtr_;
             boost::mutex mutex_;
-        };
+			
+			BITMAPINFO bmpInfo_;
+		};
     }
 }
 

@@ -31,11 +31,23 @@ void StreamPlayer::Initialize(StreamPlayerParams params)
 
     originalWndProc_ = reinterpret_cast<WNDPROC>(::SetWindowLongPtr(playerParams_.window, GWLP_WNDPROC,
         reinterpret_cast<LONG_PTR>(WndProc)));
+
+	pip_left_ = 0;
+	pip_top_ = 0;
+	pip_width_ = 0;
+	we_have_pip_ = false;
+	zoom_ = 1;
+	cross_ = 0;
 }
 
 void StreamPlayer::StartPlay(string const& streamUrl)
 {
 	workerThread_ = boost::thread(&StreamPlayer::Play, this, streamUrl);
+}
+
+void StreamPlayer::StartPlayPiP(string const& streamUrl)
+{
+	workerThreadPiP_ = boost::thread(&StreamPlayer::PlayPiP, this, streamUrl);
 }
 
 void StreamPlayer::Play(string const& streamUrl)
@@ -84,12 +96,65 @@ void StreamPlayer::Play(string const& streamUrl)
 	}
 }
 
+void StreamPlayer::PlayPiP(string const& streamUrl)
+{
+	boost::unique_lock<boost::mutex> lock(mutexPiP_, boost::defer_lock);
+	if (!lock.try_lock())
+	{
+		// Skip subsequent calls until a stream fails or stopped.  
+		return;
+	}
+
+	try
+	{
+		Decoder decoder(streamUrl);
+
+		stopRequestedPiP_ = false;
+		bool firstFrame = true;
+
+		framePiPPtr_.reset();
+
+		for (;;)
+		{
+			decoder.GetNextFrame(framePiPPtr_);
+
+			if (stopRequestedPiP_ || framePiPPtr_ == nullptr)
+			{
+				we_have_pip_ = false;
+				//::PostMessage(playerParams_.window, WM_STREAMSTOPPED, 0, 0);
+				break;
+			}
+
+			// ::PostMessage(playerParams_.window, WM_INVALIDATE, 0, 1);
+
+			const auto millisecondsToWait = decoder.InterframeDelayInMilliseconds();
+			boost::this_thread::sleep_for(boost::chrono::milliseconds(millisecondsToWait));
+
+			if (firstFrame)
+			{
+				we_have_pip_ = true;
+				//::PostMessage(playerParams_.window, WM_STREAMSTARTED, 0, 1);
+				firstFrame = false;
+			}
+		}
+	}
+	catch (runtime_error&)
+	{
+		we_have_pip_ = false;
+		//::PostMessage(playerParams_.window, WM_STREAMFAILED, 0, 1);
+	}
+}
+
 void StreamPlayer::Stop()
 {
     stopRequested_ = true;
+	stopRequestedPiP_ = true;
 
     if (workerThread_.joinable())
         workerThread_.join();
+
+	if (workerThreadPiP_.joinable())
+		workerThreadPiP_.join();
 }
 
 void StreamPlayer::Uninitialize()
@@ -110,8 +175,11 @@ void StreamPlayer::Uninitialize()
 
 void StreamPlayer::DrawFrame()
 {
-    if (framePtr_ != nullptr)
-        framePtr_->Draw(playerParams_.window);
+	if (framePtr_ != nullptr)
+		if (we_have_pip_ && (framePiPPtr_ != nullptr))
+			framePtr_->Draw(playerParams_.window, zoom_, cross_, framePiPPtr_.get(), pip_width_, pip_top_, pip_left_);
+		else
+			framePtr_->Draw(playerParams_.window, zoom_, cross_);
 }
 
 LRESULT APIENTRY StreamPlayer::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -134,15 +202,19 @@ LRESULT APIENTRY StreamPlayer::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
         break;
 
 	case WM_STREAMSTARTED:
-		playerPtr->RaiseStreamStartedEvent();
+		playerPtr->RaiseStreamStartedEvent(lParam);
 		break;
 
 	case WM_STREAMSTOPPED:
-		playerPtr->RaiseStreamStoppedEvent();
+		playerPtr->RaiseStreamStoppedEvent(lParam);
 		break;    
 
 	case WM_STREAMFAILED:
-		playerPtr->RaiseStreamFailedEvent();
+		playerPtr->RaiseStreamFailedEvent(lParam);
+		break;
+
+	case WM_ERASEBKGND:
+		return 1;
 		break;
 
     default: break;
@@ -170,20 +242,38 @@ void StreamPlayer::GetFrameSize(uint32_t *widthPtr, uint32_t *heightPtr)
     *heightPtr = framePtr_->Height();
 }
 
-void StreamPlayer::RaiseStreamStartedEvent()
+void StreamPlayer::SetupPiP(int32_t *pip_width, int32_t *pip_top, int32_t *pip_left)
+{
+	pip_left_ = *pip_left;
+	pip_top_ = *pip_top;
+	pip_width_ = *pip_width;
+}
+
+void StreamPlayer::SetupZoom(int32_t *zoom)
+{
+	zoom_ = *zoom;
+	if (zoom_ < 1) zoom_ = 1;
+}
+
+void StreamPlayer::SetupCross(int32_t *cross)
+{
+	cross_ = *cross;
+}
+
+void StreamPlayer::RaiseStreamStartedEvent(uint32_t streamNum)
 {
 	if (playerParams_.streamStartedCallback != nullptr)
-		playerParams_.streamStartedCallback();
+		playerParams_.streamStartedCallback(streamNum);
 }
 
-void StreamPlayer::RaiseStreamStoppedEvent()
+void StreamPlayer::RaiseStreamStoppedEvent(uint32_t streamNum)
 {
 	if (playerParams_.streamStoppedCallback != nullptr)
-		playerParams_.streamStoppedCallback();
+		playerParams_.streamStoppedCallback(streamNum);
 }
 
-void StreamPlayer::RaiseStreamFailedEvent()
+void StreamPlayer::RaiseStreamFailedEvent(uint32_t streamNum)
 {
-    if (playerParams_.streamFailedCallback != nullptr)
-        playerParams_.streamFailedCallback();
+	if (playerParams_.streamFailedCallback != nullptr)
+		playerParams_.streamFailedCallback(streamNum);
 }

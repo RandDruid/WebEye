@@ -67,6 +67,18 @@ namespace WebEye
         }
 
         /// <summary>
+        /// Asynchronously plays a second (PiP) stream.
+        /// </summary>
+        /// <param name="url">The url of a stream to play.</param>
+        internal void StartPlayPiP(String url)
+        {
+            if (_startPlayPiPDelegate(url) != 0)
+            {
+                throw new StreamPlayerException("Failed to play the PiP stream.");
+            }
+        }
+
+        /// <summary>
         /// Stops a stream.
         /// </summary>
         internal void Stop()
@@ -159,6 +171,39 @@ namespace WebEye
             return new Size(width, height);
         }
 
+        /// <summary>
+        /// Set PiP size and position.
+        /// </summary>
+        internal void SetupPiP(ref Int32 width, ref Int32 top, ref Int32 left)
+        {
+            if (_setupPiP(ref width, ref top, ref left) != 0)
+            {
+                throw new StreamPlayerException("Failed to setup PiP.");
+            }
+        }
+
+        /// <summary>
+        /// Set Zoom.
+        /// </summary>
+        internal void SetupZoom(ref Int32 zoom)
+        {
+            if (_setupZoom(ref zoom) != 0)
+            {
+                throw new StreamPlayerException("Failed to setup Zoom.");
+            }
+        }
+
+        /// <summary>
+        /// Set Cross.
+        /// </summary>
+        internal void SetupCross(ref Int32 cross)
+        {
+            if (_setupCross(ref cross) != 0)
+            {
+                throw new StreamPlayerException("Failed to setup Cross.");
+            }
+        }
+
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern Boolean FreeLibrary(IntPtr hModule);
@@ -223,6 +268,10 @@ namespace WebEye
             _startPlayDelegate =
                 (StartPlayDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr, typeof(StartPlayDelegate));
 
+            pProcPtr = GetProcAddress(hDll, "StartPlayPiP");
+            _startPlayPiPDelegate =
+                (StartPlayPiPDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr, typeof(StartPlayPiPDelegate));
+
             pProcPtr = GetProcAddress(hDll, "GetCurrentFrame");
             _getCurrentFrame =
                 (GetCurrentFrameDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr,
@@ -232,6 +281,21 @@ namespace WebEye
             _getFrameSize =
                 (GetFrameSizeDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr,
                 typeof(GetFrameSizeDelegate));
+
+            pProcPtr = GetProcAddress(hDll, "SetupPiP");
+            _setupPiP =
+                (SetupPiPDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr,
+                typeof(SetupPiPDelegate));
+
+            pProcPtr = GetProcAddress(hDll, "SetupZoom");
+            _setupZoom =
+                (SetupZoomDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr,
+                typeof(SetupZoomDelegate));
+
+            pProcPtr = GetProcAddress(hDll, "SetupCross");
+            _setupCross =
+                (SetupCrossDelegate)Marshal.GetDelegateForFunctionPointer(pProcPtr,
+                typeof(SetupCrossDelegate));
 
             pProcPtr = GetProcAddress(hDll, "Stop");
             _stop =
@@ -247,11 +311,23 @@ namespace WebEye
         private delegate Int32 StartPlayDelegate([MarshalAs(UnmanagedType.LPStr)]String url);
         private StartPlayDelegate _startPlayDelegate;
 
+        private delegate Int32 StartPlayPiPDelegate([MarshalAs(UnmanagedType.LPStr)]String url);
+        private StartPlayPiPDelegate _startPlayPiPDelegate;
+
         private delegate Int32 GetCurrentFrameDelegate([Out] out IntPtr dibPtr);
         private GetCurrentFrameDelegate _getCurrentFrame;
 
         private delegate Int32 GetFrameSizeDelegate(out Int32 width, out Int32 height);
         private GetFrameSizeDelegate _getFrameSize;
+
+        private delegate Int32 SetupPiPDelegate(ref Int32 width, ref Int32 top, ref Int32 left);
+        private SetupPiPDelegate _setupPiP;
+
+        private delegate Int32 SetupZoomDelegate(ref Int32 zoom);
+        private SetupZoomDelegate _setupZoom;
+
+        private delegate Int32 SetupCrossDelegate(ref Int32 cross);
+        private SetupCrossDelegate _setupCross;
 
         private delegate Int32 StopDelegate();
         private StopDelegate _stop;
